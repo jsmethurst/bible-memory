@@ -53,7 +53,7 @@ export function renderHome(el) {
   const collapsed = collapsedSet();
 
   el.innerHTML = `
-  ${topbar({ title: 'Bible Memory', right: `<a class="icon-btn" href="#/add" aria-label="Add verse">${I.plus}</a>` })}
+  ${topbar({ title: 'Bible Memory' })}
   <main class="page">
     <div class="eyebrow">${esc(date)}</div>
     <section class="card today">
@@ -84,10 +84,7 @@ export function renderHome(el) {
       }).join('')}
       ${uncats ? colRow('none', 'Uncategorized', store.verses.filter((v) => !v.collection_id), null) : ''}
     </section>
-    ${!store.verses.length ? `<div class="empty">
-      <p>No verses yet.</p>
-      <div class="row gap center"><a class="btn primary" href="#/add">Add a verse</a><a class="btn ghost" href="#/bulk">Paste a passage</a></div>
-    </div>` : ''}
+    ${!store.collections.length && !store.verses.length ? `<div class="empty"><p>Create a collection to get started.</p></div>` : ''}
   </main>`;
 
   el.querySelector('[data-go="review"]').onclick = () => {
@@ -161,10 +158,10 @@ export function renderCollection(el, cid) {
       <button class="btn ghost grow" data-act="review" ${due.length ? '' : 'disabled'}>Review ${due.length || ''}</button>
       <button class="btn ghost grow" data-act="practice">Practice all</button>
     </div>
-    <div class="row gap" style="margin-top:8px">
-      <a class="btn ghost grow" href="#/add${real ? `?c=${cid}` : ''}">Add verse</a>
-      <a class="btn ghost grow" href="#/bulk${real ? `?c=${cid}` : ''}">Paste passage</a>
-    </div>
+    ${real ? `<div class="row gap" style="margin-top:8px">
+      <a class="btn ghost grow" href="#/add?c=${cid}">Add verse</a>
+      <a class="btn ghost grow" href="#/bulk?c=${cid}">Paste passage</a>
+    </div>` : ''}
     ${kids.length ? `<div class="sec-h"><span>Sub-collections</span>${self && !self.parent_id ? '<button class="link" data-act="newsub">New</button>' : ''}</div>
     <section class="list">${kids.map((k) => colRow(k.id, k.name, collectionVerses(k.id), k.color || self.color)).join('')}</section>` : ''}
     ${kids.length && direct.length ? '<div class="sec-h"><span>Verses</span></div>' : ''}
