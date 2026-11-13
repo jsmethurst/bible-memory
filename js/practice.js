@@ -209,9 +209,8 @@ function finish() {
   session.results.push({ id: v.id, step: a.step, mistakes, words: n, passed, duration });
 
   const acc = Math.round(((n - mistakes) / n) * 100);
-  const head = passed ? (mistakes === 0 ? 'Perfect' : `Passed · ${mistakes} miss${mistakes === 1 ? '' : 'es'}`)
-    : `Try again · ${mistakes} misses`;
-  const sub = passed ? `${acc}% accuracy · ${fmtDur(duration)}` : `${allowed} allowed for a verse this length`;
+  const head = passed ? (mistakes === 0 ? 'Perfect' : 'Passed') : 'Try again';
+  const sub = `${acc}% accuracy · ${fmtDur(duration)}`;
   const nextLabel = !passed && session.mode === 'learn' ? 'Retry' : nextIsSameVerse() ? `Step ${a.step + 1}` : isLast() ? 'Finish' : 'Next';
   const res = view.querySelector('#result');
   res.innerHTML = `

@@ -223,7 +223,6 @@ export function renderVerse(el, id) {
     <div class="sec-h"><span>Details</span></div>
     <div class="kv">
       <div><span>Words</span><b>${words.length}</b></div>
-      <div><span>Misses allowed</span><b>${words.length >= store.settings.longVerseWords ? store.settings.mistakesLong : store.settings.mistakesShort}</b></div>
       ${v.stage >= 3 ? `<div><span>Interval</span><b>${Math.round(v.interval_days)} days</b></div>
       <div><span>Ease</span><b>${(v.ease || 0).toFixed(2)}</b></div>
       <div><span>Successful reviews</span><b>${v.reps}</b></div>
