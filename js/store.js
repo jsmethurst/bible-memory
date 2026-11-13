@@ -223,11 +223,17 @@ function nextPosition(collectionId) {
   return list.length ? Math.max(...list.map((v) => v.position || 0)) + 1 : 0;
 }
 
+const byPos = (a, b) => (a.position || 0) - (b.position || 0);
+export const topCollections = () => store.collections.filter((c) => !c.parent_id).sort(byPos);
+export const childrenOf = (id) => store.collections.filter((c) => c.parent_id === id).sort(byPos);
+export const collectionScope = (id) => [id, ...childrenOf(id).map((c) => c.id)];
+export const orderedCollections = () => topCollections().flatMap((c) => [c, ...childrenOf(c.id)]);
+
 export function saveCollection(c) {
   const existing = c.id && store.collections.find((x) => x.id === c.id);
   const row = existing ? { ...existing, ...c } : {
-    id: uuid(), user_id: store.user.id, color: null, created_at: new Date().toISOString(),
-    position: store.collections.length ? Math.max(...store.collections.map((x) => x.position || 0)) + 1 : 0, ...c,
+    id: uuid(), user_id: store.user.id, color: null, parent_id: null, created_at: new Date().toISOString(),
+    position: nextColPosition(c.parent_id || null), ...c,
   };
   if (existing) Object.assign(existing, row); else store.collections.push(row);
   saveCache();
@@ -236,15 +242,21 @@ export function saveCollection(c) {
   return row;
 }
 
+function nextColPosition(parentId) {
+  const sibs = store.collections.filter((c) => (c.parent_id || null) === parentId);
+  return sibs.length ? Math.max(...sibs.map((x) => x.position || 0)) + 1 : 0;
+}
+
 export function deleteCollection(id, { withVerses = false } = {}) {
-  store.collections = store.collections.filter((c) => c.id !== id);
+  const ids = collectionScope(id); // the collection and its sub-collections
+  store.collections = store.collections.filter((c) => !ids.includes(c.id));
   if (withVerses) {
-    for (const v of store.verses.filter((v) => v.collection_id === id)) deleteVerse(v.id);
+    for (const v of store.verses.filter((v) => ids.includes(v.collection_id))) deleteVerse(v.id);
   } else {
-    store.verses.forEach((v) => { if (v.collection_id === id) v.collection_id = null; });
+    store.verses.forEach((v) => { if (ids.includes(v.collection_id)) v.collection_id = null; });
   }
   saveCache();
-  enqueue({ op: 'delete', table: 'collections', id });
+  for (const cid of [...ids].reverse()) enqueue({ op: 'delete', table: 'collections', id: cid });
   emit();
 }
 
@@ -275,8 +287,8 @@ export function exportData() {
 
 export function importData(data) {
   const idMap = new Map();
-  for (const c of data.collections || []) {
-    const row = saveCollection({ name: c.name, color: c.color });
+  for (const c of [...(data.collections || [])].sort((a, b) => (a.parent_id ? 1 : 0) - (b.parent_id ? 1 : 0))) {
+    const row = saveCollection({ name: c.name, color: c.color, parent_id: c.parent_id ? idMap.get(c.parent_id) || null : null });
     idMap.set(c.id, row.id);
   }
   const vMap = new Map();

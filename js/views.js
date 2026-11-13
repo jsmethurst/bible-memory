@@ -1,5 +1,5 @@
 // Library screens: home, collections, verse detail, add/edit.
-import { store, saveVerse, deleteVerse, saveCollection, deleteCollection, resetVerseProgress, patchVerse, pendingCount } from './store.js';
+import { store, saveVerse, deleteVerse, saveCollection, deleteCollection, resetVerseProgress, patchVerse, pendingCount, topCollections, childrenOf, collectionScope, orderedCollections } from './store.js';
 import { esc, parseReference, formatReference, splitNumberedPassage, parseReferenceLines, tokenize, wordCount } from './text.js';
 import { dueVerses, stageLabel, canonicalCmp, streaks, todayCount, wordHeat, isDue } from './srs.js';
 import { startSession, focusKeys } from './practice.js';
@@ -11,7 +11,10 @@ const COLORS = ['#b08442', '#6f8f5a', '#5a7f9a', '#a3646a', '#7d6aa0', '#8a8a7a'
 function collectionVerses(cid) {
   if (cid === 'all') return store.verses.slice().sort(canonicalCmp);
   if (cid === 'none') return store.verses.filter((v) => !v.collection_id).sort((a, b) => a.position - b.position);
-  return store.verses.filter((v) => v.collection_id === cid).sort((a, b) => a.position - b.position);
+  const ids = collectionScope(cid); // includes sub-collections
+  const order = (id) => ids.indexOf(id);
+  return store.verses.filter((v) => ids.includes(v.collection_id))
+    .sort((a, b) => order(a.collection_id) - order(b.collection_id) || a.position - b.position);
 }
 
 function collectionName(cid) {
@@ -41,7 +44,6 @@ export function renderHome(el) {
   const learning = store.verses.filter((v) => v.stage < 3);
   const mastered = store.verses.filter((v) => v.stage >= 3).length;
   const date = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-  const cols = store.collections.slice().sort((a, b) => a.position - b.position);
   const uncats = store.verses.filter((v) => !v.collection_id).length;
 
   el.innerHTML = `
@@ -68,7 +70,7 @@ export function renderHome(el) {
     <div class="sec-h"><span>Collections</span><button class="link" data-act="newcol">New collection</button></div>
     <section class="list">
       ${colRow('all', 'All verses', store.verses, null)}
-      ${cols.map((c) => colRow(c.id, c.name, store.verses.filter((v) => v.collection_id === c.id), c.color)).join('')}
+      ${topCollections().map((c) => colRow(c.id, c.name, collectionVerses(c.id), c.color) + childrenOf(c.id).map((k) => colRow(k.id, k.name, collectionVerses(k.id), c.color, true)).join('')).join('')}
       ${uncats ? colRow('none', 'Uncategorized', store.verses.filter((v) => !v.collection_id), null) : ''}
     </section>
     ${!store.verses.length ? `<div class="empty">
@@ -82,31 +84,38 @@ export function renderHome(el) {
     go({ mode: 'review', ids: due.map((v) => v.id) });
   };
   el.querySelector('[data-go="learn"]').onclick = () => {
-    const ordered = [...store.collections].sort((a, b) => a.position - b.position).flatMap((c) => collectionVerses(c.id)).concat(collectionVerses('none'));
+    const ordered = topCollections().flatMap((c) => collectionVerses(c.id)).concat(collectionVerses('none'));
     go({ mode: 'learn', ids: learnQueue(ordered) });
   };
-  el.querySelector('[data-act="newcol"]').onclick = newCollection;
+  el.querySelector('[data-act="newcol"]').onclick = () => newCollection();
 }
 
-function colRow(id, name, verses, color) {
+function colRow(id, name, verses, color, sub = false) {
   const m = verses.filter((v) => v.stage >= 3).length;
   const due = verses.filter((v) => isDue(v)).length;
   const pct = verses.length ? (m / verses.length) * 100 : 0;
-  return `<a class="lrow" href="#/c/${id}">
+  const kids = sub ? 0 : childrenOf(id).length;
+  return `<a class="lrow${sub ? ' sub' : ''}" href="#/c/${id}">
     <span class="swatch" style="${color ? `background:${color}` : ''}"></span>
     <div class="lrow-main">
       <div class="lrow-t">${esc(name)}</div>
-      <div class="lrow-s">${m}/${verses.length} mastered${due ? ` · <em>${due} due</em>` : ''}</div>
+      <div class="lrow-s">${m}/${verses.length} mastered${kids ? ` · ${kids} sub-collection${kids === 1 ? '' : 's'}` : ''}${due ? ` · <em>${due} due</em>` : ''}</div>
       <div class="minibar"><i style="width:${pct}%"></i></div>
     </div>
     ${I.chev}
   </a>`;
 }
 
-async function newCollection() {
-  const r = await dialog({ title: 'New collection', fields: [{ name: 'name', label: 'Name', placeholder: 'e.g. Romans 8' }], ok: 'Create' });
+async function newCollection(parentId = null) {
+  const r = await dialog({ title: parentId ? 'New sub-collection' : 'New collection', ok: 'Create', fields: [
+    { name: 'name', label: 'Name', placeholder: 'e.g. Romans 8' },
+    { name: 'parent', label: 'Inside', type: 'select', value: parentId || '',
+      options: [{ value: '', label: 'Top level' }, ...topCollections().map((c) => ({ value: c.id, label: c.name }))] },
+  ] });
   if (r?.name?.trim()) {
-    const c = saveCollection({ name: r.name.trim(), color: COLORS[store.collections.length % COLORS.length] });
+    const parent = r.parent || null;
+    const color = parent ? store.collections.find((c) => c.id === parent)?.color : COLORS[topCollections().length % COLORS.length];
+    const c = saveCollection({ name: r.name.trim(), color, parent_id: parent });
     location.hash = `#/c/${c.id}`;
   }
 }
@@ -116,10 +125,13 @@ async function newCollection() {
 export function renderCollection(el, cid) {
   const verses = collectionVerses(cid);
   const real = cid !== 'all' && cid !== 'none';
+  const self = real ? store.collections.find((c) => c.id === cid) : null;
+  const kids = real ? childrenOf(cid) : [];
+  const direct = real ? verses.filter((v) => v.collection_id === cid) : verses;
   const due = verses.filter((v) => isDue(v));
   const m = verses.filter((v) => v.stage >= 3).length;
   el.innerHTML = `
-  ${topbar({ title: collectionName(cid), back: '#/', sub: `${verses.length} verses · ${m} mastered`,
+  ${topbar({ title: collectionName(cid), back: self?.parent_id ? `#/c/${self.parent_id}` : '#/', sub: `${verses.length} verses · ${m} mastered`,
     right: real ? `<button class="icon-btn" data-act="menu" aria-label="Collection options">${I.more}</button>` : '' })}
   <main class="page">
     <div class="row gap wrap">
@@ -131,12 +143,16 @@ export function renderCollection(el, cid) {
       <a class="btn ghost grow" href="#/add${real ? `?c=${cid}` : ''}">Add verse</a>
       <a class="btn ghost grow" href="#/bulk${real ? `?c=${cid}` : ''}">Paste passage</a>
     </div>
-    <section class="list verses">
-      ${verses.map((v) => verseRow(v)).join('') || '<div class="empty"><p>No verses in this collection.</p></div>'}
-    </section>
+    ${kids.length ? `<div class="sec-h"><span>Sub-collections</span>${self && !self.parent_id ? '<button class="link" data-act="newsub">New</button>' : ''}</div>
+    <section class="list">${kids.map((k) => colRow(k.id, k.name, collectionVerses(k.id), k.color || self.color)).join('')}</section>` : ''}
+    ${kids.length && direct.length ? '<div class="sec-h"><span>Verses</span></div>' : ''}
+    ${direct.length || !kids.length ? `<section class="list verses">
+      ${direct.map((v) => verseRow(v)).join('') || '<div class="empty"><p>No verses in this collection.</p></div>'}
+    </section>` : ''}
   </main>`;
 
   el.querySelector('[data-act="learn"]').onclick = () => go({ mode: 'learn', ids: learnQueue(verses) });
+  el.querySelector('[data-act="newsub"]')?.addEventListener('click', () => newCollection(cid));
   el.querySelector('[data-act="review"]').onclick = () => go({ mode: 'review', ids: due.map((v) => v.id) });
   el.querySelector('[data-act="practice"]').onclick = () => sheet('Practice every verse', [1, 2, 3].map((s) => ({
     label: ['Step 1 · all words shown', 'Step 2 · every other word', 'Step 3 · from memory'][s - 1],
@@ -154,16 +170,22 @@ export function renderCollection(el, cid) {
           options: COLORS.map((x, i) => ({ value: x, label: ['Gold', 'Olive', 'Steel', 'Rose', 'Iris', 'Stone'][i] })) }] });
         if (r) saveCollection({ id: c.id, color: r.color });
       } },
+      ...(!c.parent_id ? [{ label: 'New sub-collection', run: () => newCollection(c.id) }] : []),
+      ...(!kids.length && (c.parent_id || topCollections().length > 1) ? [{ label: c.parent_id ? 'Move to another collection…' : 'Put inside another collection…', run: async () => {
+        const r = await dialog({ title: 'Move collection', ok: 'Move', fields: [{ name: 'p', label: 'Inside', type: 'select', value: c.parent_id || '',
+          options: [{ value: '', label: 'Top level' }, ...topCollections().filter((x) => x.id !== c.id).map((x) => ({ value: x.id, label: x.name }))] }] });
+        if (r) { saveCollection({ id: c.id, parent_id: r.p || null, position: store.collections.filter((x) => (x.parent_id || null) === (r.p || null)).length }); location.hash = '#/'; }
+      } }] : []),
       { label: 'Move up', run: () => moveCollection(c, -1) },
       { label: 'Move down', run: () => moveCollection(c, 1) },
-      { label: 'Delete collection (keep verses)', danger: true, run: () => { if (confirm(`Delete "${c.name}"? Verses move to Uncategorized.`)) { deleteCollection(c.id); location.hash = '#/'; } } },
-      { label: 'Delete collection and its verses', danger: true, run: () => { if (confirm(`Delete "${c.name}" and all ${verses.length} verses with their history?`)) { deleteCollection(c.id, { withVerses: true }); location.hash = '#/'; } } },
+      { label: 'Delete collection (keep verses)', danger: true, run: () => { if (confirm(`Delete "${c.name}"? ${kids.length ? 'Its sub-collections are removed too. ' : ''}Verses move to Uncategorized.`)) { deleteCollection(c.id); location.hash = '#/'; } } },
+      { label: 'Delete collection and its verses', danger: true, run: () => { if (confirm(`Delete "${c.name}"${kids.length ? ', its sub-collections' : ''} and all ${verses.length} verses with their history?`)) { deleteCollection(c.id, { withVerses: true }); location.hash = '#/'; } } },
     ]);
   });
 }
 
 function moveCollection(c, dir) {
-  const cols = store.collections.slice().sort((a, b) => a.position - b.position);
+  const cols = store.collections.filter((x) => (x.parent_id || null) === (c.parent_id || null)).sort((a, b) => a.position - b.position);
   const i = cols.findIndex((x) => x.id === c.id);
   const j = i + dir;
   if (j < 0 || j >= cols.length) return;
@@ -249,7 +271,7 @@ export function renderVerse(el, id) {
     { label: 'Edit verse', run: () => { location.hash = `#/edit/${v.id}`; } },
     { label: 'Move to collection', run: async () => {
       const r = await dialog({ title: 'Move to', fields: [{ name: 'c', label: 'Collection', type: 'select', value: v.collection_id || '',
-        options: [{ value: '', label: 'Uncategorized' }, ...store.collections.map((c) => ({ value: c.id, label: c.name }))] }], ok: 'Move' });
+        options: [{ value: '', label: 'Uncategorized' }, ...orderedCollections().map((c) => ({ value: c.id, label: (c.parent_id ? '– ' : '') + c.name }))] }], ok: 'Move' });
       if (r) { patchVerse(v.id, { collection_id: r.c || null }); toast('Moved'); }
     } },
     ...(v.stage >= 3 ? [{ label: 'Mark due today', run: () => { patchVerse(v.id, { due_at: new Date().toISOString() }); toast('Due today'); } }] : []),
@@ -264,8 +286,8 @@ export function renderVerse(el, id) {
 /* ---------- add / edit ---------- */
 
 function collectionOptions(selected) {
-  return `<option value="">Uncategorized</option>` + store.collections.slice().sort((a, b) => a.position - b.position)
-    .map((c) => `<option value="${c.id}"${c.id === selected ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+  return `<option value="">Uncategorized</option>` + orderedCollections()
+    .map((c) => `<option value="${c.id}"${c.id === selected ? ' selected' : ''}>${c.parent_id ? '&nbsp;&nbsp;– ' : ''}${esc(c.name)}</option>`).join('');
 }
 
 export function renderEdit(el, id, params) {
@@ -362,7 +384,7 @@ export function renderBulk(el, params) {
     e.preventDefault();
     if (!parsed.length) return;
     let col = f.collection_id.value || null;
-    if (col === '__new') col = saveCollection({ name: f.ref.value.trim() || parsed[0].reference, color: COLORS[store.collections.length % COLORS.length] }).id;
+    if (col === '__new') col = saveCollection({ name: f.ref.value.trim() || parsed[0].reference, color: COLORS[topCollections().length % COLORS.length] }).id;
     for (const x of parsed) saveVerse({ reference: x.reference, text: x.text.replace(/\s+/g, ' '), collection_id: col });
     toast(`Added ${parsed.length} verse${parsed.length === 1 ? '' : 's'}`);
     location.hash = `#/c/${col || 'none'}`;

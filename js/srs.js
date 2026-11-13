@@ -1,5 +1,5 @@
 // Spaced repetition and day helpers.
-import { store } from './store.js';
+import { store, orderedCollections } from './store.js';
 import { wordCount, bookIndex } from './text.js';
 
 export const DAY = 86400000;
@@ -43,7 +43,8 @@ export function canonicalCmp(a, b) {
     || a.reference.localeCompare(b.reference);
 }
 function collectionCmp(a, b) {
-  const pos = (id) => store.collections.find((c) => c.id === id)?.position ?? 1e9;
+  const order = orderedCollections().map((c) => c.id);
+  const pos = (id) => { const i = order.indexOf(id); return i < 0 ? 1e9 : i; };
   return pos(a.collection_id) - pos(b.collection_id) || (a.position || 0) - (b.position || 0);
 }
 

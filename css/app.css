@@ -420,3 +420,7 @@ a.lrow:active { background: var(--surface-2); }
 .login-mark { color: var(--accent); display: grid; place-items: center; margin-bottom: 14px; }
 .login h1 { font-size: 22px; font-weight: 600; margin: 0 0 34px; letter-spacing: .01em; }
 .login .form { text-align: left; }
+
+.lrow.sub { padding-left: 34px; background: color-mix(in srgb, var(--surface-2) 45%, var(--surface)); }
+.lrow.sub .swatch { height: 26px; width: 6px; opacity: .8; }
+.lrow.sub .lrow-t { font-weight: 500; font-size: 13px; }

@@ -6,6 +6,7 @@ create table public.collections (
   name text not null,
   color text,
   position int not null default 0,
+  parent_id uuid references public.collections(id) on delete cascade,  -- one level of nesting only
   created_at timestamptz not null default now()
 );
 
