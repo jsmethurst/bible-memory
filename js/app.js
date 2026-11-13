@@ -4,7 +4,7 @@ import { renderHome, renderCollection, renderVerse, renderEdit, renderBulk } fro
 import { renderStats } from './stats.js';
 import { renderSettings } from './settingsView.js';
 import { renderSession, hasSession, handleChar, handleKey, keytrap, focusKeys } from './practice.js';
-import { dueVerses } from './srs.js';
+import { dueVerses, dayKey } from './srs.js';
 import { initTooltips } from './charts.js';
 import { I, toast } from './ui.js';
 import { esc } from './text.js';
@@ -155,6 +155,18 @@ async function boot() {
 sb.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') { store.user = null; route(); }
 });
+
+// When the (Istanbul) day changes while the app is open, refresh so newly due verses appear at midnight.
+let shownDay = dayKey(new Date());
+function dayRollover() {
+  const k = dayKey(new Date());
+  if (k === shownDay) return;
+  shownDay = k;
+  const first = parseHash().parts[0];
+  if (store.user && !['session', 'add', 'edit', 'bulk', 'settings'].includes(first) && !document.querySelector('.sheet-wrap')) route();
+}
+setInterval(dayRollover, 20000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) dayRollover(); });
 
 initTooltips(document);
 boot().catch((e) => {

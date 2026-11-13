@@ -4,11 +4,10 @@ import { wordCount, bookIndex } from './text.js';
 
 export const DAY = 86400000;
 
-export function dayKey(d) {
-  const x = new Date(d);
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
-}
-export function startOfDay(d = new Date()) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+// The app's day always follows Istanbul time (UTC+3, no daylight saving), whatever the device clock says.
+const IST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit' });
+export function dayKey(d) { return IST.format(new Date(d)); }
+export function startOfDay(d = new Date()) { return new Date(`${dayKey(d)}T00:00:00+03:00`); }
 export function endOfToday() { const x = startOfDay(); return new Date(x.getTime() + DAY - 1); }
 export function daysBetween(a, b) { return Math.round((startOfDay(b) - startOfDay(a)) / DAY); }
 
@@ -56,6 +55,11 @@ export function shuffle(arr) {
   return a;
 }
 
+// 12:01 a.m. Istanbul time on the day that is `days` days from `from`.
+function dueMorning(from, days) {
+  return new Date(startOfDay(new Date(from.getTime() + Math.round(days) * DAY)).getTime() + 60000);
+}
+
 // Called when a mastered verse is reviewed. Returns the patch to apply.
 export function scheduleReview(v, mistakes, passed) {
   const s = store.settings;
@@ -80,16 +84,14 @@ export function scheduleReview(v, mistakes, passed) {
     interval = Math.min(s.maxInterval, Math.max(1, interval));
     reps += 1;
   }
-  const due = startOfDay(new Date(now.getTime() + Math.round(interval) * DAY));
-  due.setHours(12); // noon keeps the same calendar day across time zones
+  const due = dueMorning(now, interval);
   return { ease, interval_days: interval, reps, lapses, due_at: due.toISOString(), last_reviewed_at: now.toISOString() };
 }
 
 // Called when step 3 of learning is passed.
 export function masterPatch() {
   const s = store.settings;
-  const due = startOfDay(new Date(Date.now() + s.firstInterval * DAY));
-  due.setHours(12);
+  const due = dueMorning(new Date(), s.firstInterval);
   return {
     stage: 3, reps: 0, interval_days: s.firstInterval, ease: store.settings.startEase,
     due_at: due.toISOString(), mastered_at: new Date().toISOString(), last_reviewed_at: new Date().toISOString(),
@@ -118,7 +120,7 @@ export function streaks(byDay = activityByDay()) {
   const keys = [...byDay.keys()].filter((k) => byDay.get(k).passed > 0).sort();
   let prev = null;
   for (const k of keys) {
-    const d = new Date(k + 'T12:00:00');
+    const d = new Date(k + 'T12:00:00+03:00');
     run = prev && daysBetween(prev, d) === 1 ? run + 1 : 1;
     longest = Math.max(longest, run);
     prev = d;
