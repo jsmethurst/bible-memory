@@ -82,6 +82,7 @@ export function renderSettings(el) {
       <div class="srow"><div><span>Sync</span><small>${pendingCount() ? `${pendingCount()} change(s) waiting` : 'Everything saved'}</small></div><button class="btn ghost sm" data-act="sync">Sync now</button></div>
       <div class="srow"><div><span>Export</span><small>Download all verses and history as JSON</small></div><button class="btn ghost sm" data-act="export">Export</button></div>
       <div class="srow"><div><span>Import</span><small>Add from an export file</small></div><label class="btn ghost sm">Import<input type="file" accept="application/json" data-act="import" hidden></label></div>
+      <div class="srow"><div><span>App version</span><small>Clears the saved copy and loads the newest</small></div><button class="btn ghost sm" data-act="refresh">Reload latest</button></div>
       <div class="srow"><div><span>Restore defaults</span><small>Settings only; verses untouched</small></div><button class="btn ghost sm" data-act="defaults">Reset</button></div>
       <div class="srow"><div><span>Signed in as</span><small>${esc((store.user?.email || '').split('@')[0])}</small></div><button class="btn ghost sm danger" data-act="signout">Sign out</button></div>
     </div>
@@ -125,6 +126,14 @@ export function renderSettings(el) {
       importData(data);
       toast('Imported');
     } catch (err) { toast('Could not read that file'); }
+  };
+  el.querySelector('[data-act="refresh"]').onclick = async () => {
+    try {
+      const regs = await navigator.serviceWorker?.getRegistrations();
+      await Promise.all((regs || []).map((r) => r.unregister()));
+      await Promise.all((await caches.keys()).map((k) => caches.delete(k)));
+    } catch {}
+    location.reload();
   };
   el.querySelector('[data-act="defaults"]').onclick = () => {
     if (!confirm('Restore all settings to defaults?')) return;
