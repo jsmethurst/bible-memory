@@ -8,6 +8,7 @@ import { dueVerses } from './srs.js';
 import { initTooltips } from './charts.js';
 import { I, toast } from './ui.js';
 import { esc } from './text.js';
+import { startUpdateWatch } from './update.js';
 
 const app = document.getElementById('app');
 const viewEl = document.getElementById('view');
@@ -160,6 +161,8 @@ boot().catch((e) => {
   console.error(e);
   viewEl.innerHTML = `<main class="page"><div class="empty"><p>Something went wrong starting up.</p><p class="hint">${esc(e.message)}</p><button class="btn primary" onclick="location.reload()">Reload</button></div></main>`;
 });
+
+startUpdateWatch();
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});

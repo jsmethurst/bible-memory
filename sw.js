@@ -1,7 +1,7 @@
 // Network-first app shell cache so the app opens offline. Supabase calls are never cached.
-const CACHE = 'bm-shell-v2';
+const CACHE = 'bm-shell-v3';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/store.js', 'js/settings.js', 'js/text.js', 'js/srs.js',
-  'js/practice.js', 'js/views.js', 'js/stats.js', 'js/settingsView.js', 'js/charts.js', 'js/ui.js', 'js/config.js',
+  'js/practice.js', 'js/views.js', 'js/stats.js', 'js/settingsView.js', 'js/update.js', 'js/charts.js', 'js/ui.js', 'js/config.js',
   'js/vendor/supabase.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {

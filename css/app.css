@@ -424,3 +424,9 @@ a.lrow:active { background: var(--surface-2); }
 .lrow.sub { padding-left: 34px; background: color-mix(in srgb, var(--surface-2) 45%, var(--surface)); }
 .lrow.sub .swatch { height: 26px; width: 6px; opacity: .8; }
 .lrow.sub .lrow-t { font-weight: 500; font-size: 13px; }
+
+#update-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tab-h) + 14px + env(safe-area-inset-bottom)); width: calc(var(--app-w) - 32px); z-index: 40;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 10px 10px 16px; border-radius: 14px;
+  background: var(--ink); color: var(--bg); font-size: 13px; box-shadow: 0 10px 30px -10px rgba(0,0,0,.5); }
+#update-bar button { background: var(--accent); color: var(--accent-ink); border-radius: 9px; height: 32px; padding: 0 14px; font-weight: 600; }
+#app.in-session #update-bar { bottom: 16px; }
