@@ -41,6 +41,7 @@ export function renderSettings(el) {
       ${tog('showReference', 'Show reference while typing')}
       ${tog('showCursor', 'Highlight current word')}
       ${tog('showProgressBar', 'Session progress bar')}
+      ${sel('weekStart', 'Week starts', [[0, 'Sunday'], [1, 'Monday']], 'Used by the activity calendar.')}
     </div>
 
     <div class="sgroup"><div class="sg-h">Accuracy</div>
@@ -71,11 +72,6 @@ export function renderSettings(el) {
       ${sel('failAction', 'When a review fails', [['relapse', 'Review again tomorrow'], ['relearn', 'Send back to step 3']])}
       ${tog('requeueFailed', 'Retry failed verses at end of session')}
       ${tog('fuzz', 'Spread reviews slightly', 'Adds ±5% so verses don’t bunch up on one day.')}
-    </div>
-
-    <div class="sgroup"><div class="sg-h">Goals</div>
-      ${num('dailyGoal', 'Daily goal', 1, 100, 1, ' verses')}
-      ${sel('weekStart', 'Week starts', [[0, 'Sunday'], [1, 'Monday']])}
     </div>
 
     <div class="sgroup"><div class="sg-h">Data</div>

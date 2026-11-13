@@ -37,8 +37,6 @@ export const DEFAULTS = {
   requeueFailed: true,
   fuzz: true,
 
-  // goals
-  dailyGoal: 5,
   weekStart: 0,             // 0 Sunday, 1 Monday
 };
 

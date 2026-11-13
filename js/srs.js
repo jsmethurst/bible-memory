@@ -128,10 +128,10 @@ export function streaks(byDay = activityByDay()) {
   return { current, longest, practicedToday: byDay.get(dayKey(new Date()))?.passed > 0 };
 }
 
-export function todayCount() {
+// Verses successfully reviewed today (does not count learning steps).
+export function reviewedToday() {
   const k = dayKey(new Date());
-  const ids = new Set(store.attempts.filter((a) => a.passed && dayKey(a.created_at) === k).map((a) => a.verse_id));
-  return ids.size;
+  return new Set(store.attempts.filter((a) => a.kind === 'review' && a.passed && dayKey(a.created_at) === k).map((a) => a.verse_id)).size;
 }
 
 // Miss rate per word index for a verse, using attempts that match the current word count.

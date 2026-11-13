@@ -1,7 +1,7 @@
 // Library screens: home, collections, verse detail, add/edit.
 import { store, saveVerse, deleteVerse, saveCollection, deleteCollection, resetVerseProgress, patchVerse, pendingCount, topCollections, childrenOf, collectionScope, orderedCollections } from './store.js';
 import { esc, parseReference, formatReference, splitNumberedPassage, parseReferenceLines, tokenize, wordCount } from './text.js';
-import { dueVerses, stageLabel, canonicalCmp, streaks, todayCount, wordHeat, isDue } from './srs.js';
+import { dueVerses, stageLabel, canonicalCmp, streaks, reviewedToday, wordHeat, isDue } from './srs.js';
 import { startSession, focusKeys } from './practice.js';
 import { ring } from './charts.js';
 import { I, topbar, toast, sheet, dialog, relTime } from './ui.js';
@@ -44,8 +44,9 @@ export function go(session, hash) {
 export function renderHome(el) {
   const due = dueVerses();
   const st = streaks();
-  const today = todayCount();
-  const goal = store.settings.dailyGoal;
+  const done = reviewedToday();
+  const dueAll = store.verses.filter((v) => isDue(v)).length;
+  const total = done + dueAll;
   const learning = store.verses.filter((v) => v.stage < 3);
   const mastered = store.verses.filter((v) => v.stage >= 3).length;
   const date = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -57,9 +58,9 @@ export function renderHome(el) {
   <main class="page">
     <div class="eyebrow">${esc(date)}</div>
     <section class="card today">
-      ${ring(goal ? today / goal : 0, { size: 72, stroke: 7, label: `${today}/${goal}` })}
+      ${ring(total ? done / total : 1, { size: 72, stroke: 7, label: total ? `${done}/${total}` : '✓' })}
       <div class="today-txt">
-        <div class="today-h">${today >= goal ? 'Daily goal met' : `${goal - today} more to reach today's goal`}</div>
+        <div class="today-h">${dueAll ? `${dueAll} verse${dueAll === 1 ? '' : 's'} due` : 'All caught up'}</div>
         <div class="today-s"><span class="flame ${st.practicedToday ? 'lit' : ''}">${I.flame}</span>${st.current} day streak · ${mastered} mastered</div>
       </div>
     </section>
