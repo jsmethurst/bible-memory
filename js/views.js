@@ -6,6 +6,11 @@ import { startSession, focusKeys } from './practice.js';
 import { ring } from './charts.js';
 import { I, topbar, toast, sheet, dialog, relTime } from './ui.js';
 
+// Which parent collections are collapsed on the home list (per-device convenience).
+const COLLAPSE_KEY = 'bm.collapsed';
+const collapsedSet = () => { try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY)) || []); } catch { return new Set(); } };
+const saveCollapsed = (s) => { try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...s])); } catch {} };
+
 const COLORS = ['#b08442', '#6f8f5a', '#5a7f9a', '#a3646a', '#7d6aa0', '#8a8a7a'];
 
 function collectionVerses(cid) {
@@ -45,6 +50,7 @@ export function renderHome(el) {
   const mastered = store.verses.filter((v) => v.stage >= 3).length;
   const date = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
   const uncats = store.verses.filter((v) => !v.collection_id).length;
+  const collapsed = collapsedSet();
 
   el.innerHTML = `
   ${topbar({ title: 'Bible Memory', right: `<a class="icon-btn" href="#/add" aria-label="Add verse">${I.plus}</a>` })}
@@ -70,7 +76,12 @@ export function renderHome(el) {
     <div class="sec-h"><span>Collections</span><button class="link" data-act="newcol">New collection</button></div>
     <section class="list">
       ${colRow('all', 'All verses', store.verses, null)}
-      ${topCollections().map((c) => colRow(c.id, c.name, collectionVerses(c.id), c.color) + childrenOf(c.id).map((k) => colRow(k.id, k.name, collectionVerses(k.id), c.color, true)).join('')).join('')}
+      ${topCollections().map((c) => {
+        const kids = childrenOf(c.id);
+        const row = colRow(c.id, c.name, collectionVerses(c.id), c.color);
+        if (!kids.length) return row;
+        return `<div class="group${collapsed.has(c.id) ? ' collapsed' : ''}" data-group="${c.id}">${row}<div class="kids">${kids.map((k) => colRow(k.id, k.name, collectionVerses(k.id), c.color, true)).join('')}</div></div>`;
+      }).join('')}
       ${uncats ? colRow('none', 'Uncategorized', store.verses.filter((v) => !v.collection_id), null) : ''}
     </section>
     ${!store.verses.length ? `<div class="empty">
@@ -88,6 +99,14 @@ export function renderHome(el) {
     go({ mode: 'learn', ids: learnQueue(ordered) });
   };
   el.querySelector('[data-act="newcol"]').onclick = () => newCollection();
+  el.querySelectorAll('[data-tog]').forEach((b) => b.onclick = () => {
+    const g = el.querySelector(`[data-group="${b.dataset.tog}"]`);
+    const set = collapsedSet();
+    const nowCollapsed = g.classList.toggle('collapsed');
+    nowCollapsed ? set.add(b.dataset.tog) : set.delete(b.dataset.tog);
+    b.setAttribute('aria-expanded', String(!nowCollapsed));
+    saveCollapsed(set);
+  });
 }
 
 function colRow(id, name, verses, color, sub = false) {
@@ -95,15 +114,18 @@ function colRow(id, name, verses, color, sub = false) {
   const due = verses.filter((v) => isDue(v)).length;
   const pct = verses.length ? (m / verses.length) * 100 : 0;
   const kids = sub ? 0 : childrenOf(id).length;
-  return `<a class="lrow${sub ? ' sub' : ''}" href="#/c/${id}">
-    <span class="swatch" style="${color ? `background:${color}` : ''}"></span>
+  const inner = `<span class="swatch" style="${color ? `background:${color}` : ''}"></span>
     <div class="lrow-main">
       <div class="lrow-t">${esc(name)}</div>
       <div class="lrow-s">${m}/${verses.length} mastered${kids ? ` · ${kids} sub-collection${kids === 1 ? '' : 's'}` : ''}${due ? ` · <em>${due} due</em>` : ''}</div>
       <div class="minibar"><i style="width:${pct}%"></i></div>
-    </div>
-    ${I.chev}
-  </a>`;
+    </div>`;
+  if (kids) {
+    const open = !collapsedSet().has(id);
+    return `<div class="lrow haskids"><a class="lrow-a" href="#/c/${id}">${inner}</a>
+      <button class="tog" data-tog="${id}" aria-label="Expand or collapse ${esc(name)}" aria-expanded="${open}">${I.chev}</button></div>`;
+  }
+  return `<a class="lrow${sub ? ' sub' : ''}" href="#/c/${id}">${inner}${I.chev}</a>`;
 }
 
 async function newCollection(parentId = null) {

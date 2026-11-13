@@ -430,3 +430,12 @@ a.lrow:active { background: var(--surface-2); }
   background: var(--ink); color: var(--bg); font-size: 13px; box-shadow: 0 10px 30px -10px rgba(0,0,0,.5); }
 #update-bar button { background: var(--accent); color: var(--accent-ink); border-radius: 9px; height: 32px; padding: 0 14px; font-weight: 600; }
 #app.in-session #update-bar { bottom: 16px; }
+
+.lrow.haskids { padding: 0 0 0 14px; }
+.lrow-a { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 12px 0; }
+.tog { width: 52px; align-self: stretch; display: grid; place-items: center; color: var(--muted); }
+.tog svg { transform: rotate(90deg); transition: transform .18s ease; }
+.tog[aria-expanded="false"] svg { transform: rotate(0deg); }
+.tog:active { background: var(--surface-2); }
+.kids > .lrow:first-child { border-top: 1px solid var(--line); }
+.group.collapsed .kids { display: none; }
