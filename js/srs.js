@@ -23,8 +23,10 @@ export function stageLabel(v) {
   return 'New';
 }
 
-export function isDue(v, at = endOfToday()) {
-  return v.stage >= 3 && v.due_at && new Date(v.due_at) <= at;
+// Due is decided by calendar day, not time of day: everything scheduled for today (or earlier,
+// if overdue) is due from the moment the day starts until it is reviewed.
+export function isDue(v, now = new Date()) {
+  return v.stage >= 3 && !!v.due_at && dayKey(v.due_at) <= dayKey(now);
 }
 
 export function dueVerses() {
@@ -79,7 +81,7 @@ export function scheduleReview(v, mistakes, passed) {
     reps += 1;
   }
   const due = startOfDay(new Date(now.getTime() + Math.round(interval) * DAY));
-  due.setHours(4); // due from early morning on that day
+  due.setHours(12); // noon keeps the same calendar day across time zones
   return { ease, interval_days: interval, reps, lapses, due_at: due.toISOString(), last_reviewed_at: now.toISOString() };
 }
 
@@ -87,7 +89,7 @@ export function scheduleReview(v, mistakes, passed) {
 export function masterPatch() {
   const s = store.settings;
   const due = startOfDay(new Date(Date.now() + s.firstInterval * DAY));
-  due.setHours(4);
+  due.setHours(12);
   return {
     stage: 3, reps: 0, interval_days: s.firstInterval, ease: store.settings.startEase,
     due_at: due.toISOString(), mastered_at: new Date().toISOString(), last_reviewed_at: new Date().toISOString(),
