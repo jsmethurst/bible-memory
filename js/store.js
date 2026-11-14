@@ -276,6 +276,19 @@ export function resetVerseProgress(id) {
   });
 }
 
+/* ---------- ESV lookup (through the esv edge function; the API key stays on the server) ---------- */
+
+export async function fetchEsv(query, { verseNumbers = false } = {}) {
+  const { data, error } = await sb.functions.invoke('esv', { body: { query, verseNumbers } });
+  if (error) {
+    let msg = 'Could not reach the ESV service. Check your connection.';
+    try { const j = await error.context.json(); if (j?.error) msg = j.error; } catch {}
+    throw new Error(msg);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
 /* ---------- import / export ---------- */
 
 export function exportData() {

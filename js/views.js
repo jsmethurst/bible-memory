@@ -1,5 +1,5 @@
 // Library screens: home, collections, verse detail, add/edit.
-import { store, saveVerse, deleteVerse, saveCollection, deleteCollection, resetVerseProgress, patchVerse, pendingCount, topCollections, childrenOf, collectionScope, orderedCollections } from './store.js';
+import { store, saveVerse, deleteVerse, saveCollection, deleteCollection, resetVerseProgress, patchVerse, pendingCount, fetchEsv, topCollections, childrenOf, collectionScope, orderedCollections } from './store.js';
 import { esc, parseReference, formatReference, splitNumberedPassage, parseReferenceLines, tokenize, wordCount } from './text.js';
 import { dueVerses, stageLabel, canonicalCmp, streaks, reviewedToday, wordHeat, isDue } from './srs.js';
 import { startSession, focusKeys } from './practice.js';
@@ -319,6 +319,7 @@ export function renderEdit(el, id, params) {
     <form class="form" id="f">
       <label class="field"><span>Reference</span><input name="reference" value="${esc(v?.reference || '')}" placeholder="John 3:16" autocomplete="off" required></label>
       <div class="hint" id="refhint"></div>
+      <button type="button" class="btn ghost wide" data-act="esv">Fetch ESV text</button>
       <label class="field"><span>Text</span><textarea name="text" rows="7" placeholder="Type or paste the verse" required>${esc(v?.text || '')}</textarea></label>
       <div class="hint" id="wc"></div>
       <label class="field"><span>Collection</span><select name="collection_id">${collectionOptions(cid)}</select></label>
@@ -355,6 +356,18 @@ export function renderEdit(el, id, params) {
     }
   };
   f.onsubmit = (e) => { e.preventDefault(); submit(false); };
+  const esvBtn = el.querySelector('[data-act="esv"]');
+  esvBtn.onclick = async () => {
+    const ref = f.reference.value.trim();
+    if (!ref) { toast('Enter a reference first'); return f.reference.focus(); }
+    if (f.text.value.trim() && !confirm('Replace the current text with the ESV text?')) return;
+    esvBtn.disabled = true; esvBtn.textContent = 'Fetching…';
+    try {
+      const r = await fetchEsv(ref);
+      f.text.value = r.text; upd();
+    } catch (err) { toast(err.message); }
+    esvBtn.disabled = false; esvBtn.textContent = 'Fetch ESV text';
+  };
   el.querySelector('[data-act="another"]')?.addEventListener('click', () => submit(true));
 }
 
@@ -365,6 +378,7 @@ export function renderBulk(el, params) {
   <main class="page">
     <form class="form" id="f">
       <label class="field"><span>Passage reference</span><input name="ref" placeholder="Romans 8:28-30" autocomplete="off"></label>
+      <button type="button" class="btn ghost wide" data-act="esv">Fetch ESV text for this passage</button>
       <label class="field"><span>Text</span><textarea name="text" rows="10" placeholder="28 And we know that for those who love God… 29 For those whom he foreknew…"></textarea></label>
       <div class="hint">Paste text with verse numbers and a passage reference, or one verse per line starting with its reference (e.g. “John 3:16 For God so loved…”). Each verse is saved separately.</div>
       <label class="field"><span>Collection</span><select name="collection_id">${collectionOptions(cid)}<option value="__new">New collection named after passage</option></select></label>
@@ -400,6 +414,18 @@ export function renderBulk(el, params) {
     btn.textContent = parsed.length ? `Add ${parsed.length} verse${parsed.length === 1 ? '' : 's'}` : 'Add verses';
   };
   f.addEventListener('input', upd);
+  const esvBtn = el.querySelector('[data-act="esv"]');
+  esvBtn.onclick = async () => {
+    const ref = f.ref.value.trim();
+    if (!ref) { toast('Enter the passage reference first'); return f.ref.focus(); }
+    if (f.text.value.trim() && !confirm('Replace the current text with the ESV text?')) return;
+    esvBtn.disabled = true; esvBtn.textContent = 'Fetching…';
+    try {
+      const r = await fetchEsv(ref, { verseNumbers: true });
+      f.text.value = r.text; upd();
+    } catch (err) { toast(err.message); }
+    esvBtn.disabled = false; esvBtn.textContent = 'Fetch ESV text for this passage';
+  };
   f.onsubmit = (e) => {
     e.preventDefault();
     if (!parsed.length) return;
